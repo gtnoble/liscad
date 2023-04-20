@@ -103,23 +103,25 @@
                       ,@body))))
 
 
-;;; Creates a C-vector with C name VECTOR-C-NAME with Ctype TYPE. 
+;;; Creates a 3D C-vector with C name VECTOR-C-NAME with Ctype TYPE. 
 ;;; The value of the elements are those in sequence SEQ
 (defmacro let-c-vector (vector-c-name type seq &rest body)
   (let ((x-vector-name (gensym-c))
         (y-vector-name (gensym-c))
         (z-vector-name (gensym-c)))
-    `(let ((,x-vector-name (elt ,seq 0))
-           (,y-vector-name (elt ,seq 1))
-           (,z-vector-name (elt ,seq 2)))
-       (c-lang ,type)
-       (c-lang " ")
-       (c-lang ,vector-c-name)
-       (c-lang ";")
-       (set-c-vector-coordinate ,vector-c-name "0" ,x-vector-name)
-       (set-c-vector-coordinate ,vector-c-name "1" ,y-vector-name)
-       (set-c-vector-coordinate ,vector-c-name "2" ,z-vector-name)  
-       ,@body)))
+    `(if (= (length ,seq) 3) 
+         (let ((,x-vector-name (convert (elt ,seq 0) <float>))
+               (,y-vector-name (convert (elt ,seq 1) <float>))
+               (,z-vector-name (convert (elt ,seq 2) <float>)))
+           (c-lang ,type)
+           (c-lang " ")
+           (c-lang ,vector-c-name)
+           (c-lang ";")
+           (set-c-vector-coordinate ,vector-c-name "0" ,x-vector-name)
+           (set-c-vector-coordinate ,vector-c-name "1" ,y-vector-name)
+           (set-c-vector-coordinate ,vector-c-name "2" ,z-vector-name)  
+           ,@body)
+         (error "Sequence must be of length 3!"))))
 
 ;;; Creates multiple C-vectors with a syntax similar to LET
 (defmacro let-c-vectors (vector-mapping &rest body)
@@ -147,14 +149,15 @@
        (setf (current-wdb-names) (cons ,generated-name (current-wdb-names)))
        ,generated-name)))
 
-(defun flatten-vertices (vertices)
+(defun unnest (vertices)
   (reduce 
     (lambda (accumulated vertex) (concatenate '<list> accumulated vertex)) 
     (list)
     vertices))
 
-(defun make-arb8 (name vertices)
-  (let ((flat-vertices (flatten-vertices vertices))) 
+(defun make-arb8 (name quad1 quad2)
+  (let* ((vertices (concatenate '<list> quad1 quad2))
+        (flat-vertices (unnest vertices))) 
     (if (= (length vertices) 8) 
       (let-c-double-array "flat_vertices" "fastf_t" flat-vertices 24
                           (make-wdb-object "mk_arb8" name "flat_vertices"))
