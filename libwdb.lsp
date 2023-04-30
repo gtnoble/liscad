@@ -32,7 +32,7 @@
 
 ;;; Is there an object in the currently open database with this name?
 (defun wdb-object-namep (object-name)
-  (some (lambda (name) (string-equal name object-name))
+  (some (lambda (name) (string= name object-name))
         (current-wdb-names)))
 
 ;;; Creates a unique database object name with prefix PREFIX
@@ -52,6 +52,11 @@
 ;;; List of names of all objects in the open database
 (defun current-wdb-names ()
   (wdb-object-names (dynamic *current-wdb-db*)))
+
+(defun add-object-name (name)
+  (let ((db (dynamic *current-wdb-db*))) 
+    (setf (wdb-object-names db)
+        (cons name (wdb-object-names db)))))
 
 ;;; Open wdb database with filename FILENAME
 (defun open-wdb-database (filename) 
@@ -146,7 +151,7 @@
     `(let ((,generated-name (available-object-name ,prefix))
            (,generated-dbptr-name (current-wdb-pointer)))
        (c-lang ,c-expression)
-       (setf (current-wdb-names) (cons ,generated-name (current-wdb-names)))
+       (add-object-name ,generated-name)
        ,generated-name)))
 
 (defun unnest (vertices)
@@ -162,6 +167,15 @@
       (let-c-double-array "flat_vertices" "fastf_t" flat-vertices 24
                           (make-wdb-object "mk_arb8" name "flat_vertices"))
       (error "Must have exactly 8 vertices"))))
+
+(defun make-arb6 (name triangle1 triangle2)
+  (let ((quad1 (concatenate '<general-vector> 
+                            (vector (elt triangle1 0)) 
+                            triangle1))
+        (quad2 (concatenate '<general-vector> 
+                            (vector (elt triangle2 0)) 
+                            triangle2)))
+    (make-arb8 name quad1 quad2)))
 
 ;;; Makes a sphere in the current database
 ;;; NAME is base name
@@ -194,8 +208,8 @@
 ;;; Appends an object to a combination list
 (defun append-combination-list (element-name list-head operation)
   (let ((operation-code (cond ((eq operation 'union) (union-operation))
-                               ((eq operation 'subtract) (subtract-operation))
-                               ((eq operation 'intersect) (intersect-operation))
+                               ((eq operation 'difference) (subtract-operation))
+                               ((eq operation 'intersection) (intersect-operation))
                                (t (error "invalid operation selected")))))
     (c-lang "mk_addmember(Fgetname(ELEMENT_NAME), Fgetlong(LIST_HEAD), NULL, OPERATION_CODE & INT_MASK);")))
 
@@ -208,6 +222,7 @@
   (c-lang "unsigned char rgb[3] = {0, 0, 0};")
   (let ((list-head (c-lang "res = Fmakefaststrlong(list_head_str);"))
         (wdbptr (current-wdb-pointer)))
-    (dolist (element-name element-names)
+    (dolist (element-name (convert element-names <list>))
       (append-combination-list element-name list-head operation))
-    (c-lang "mk_lcomb(Fgetlong(WDBPTR), Fgetname(COMBINATION_NAME), &wm_hd, 0, NULL, NULL, NULL, 0);")))
+    (make-wdb-object "mk_lcomb" combination-name "&wm_hd" "0" "NULL" "NULL" "NULL" "0")
+    ))
