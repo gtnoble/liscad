@@ -52,3 +52,89 @@
 
 (defun double (x)
   (matrix::mult x 2))
+
+(defun distance (vertex1 vertex2)
+  (matrix::norm (matrix::sub vertex1 vertex2)))
+
+(defun centered-pair (x)
+  (let ((displacement-from-origin (half x))) 
+    (vector displacement-from-origin 
+            (matrix::negate displacement-from-origin))))
+
+(defun all-combinations-with-one-vertex-removed (vertices) 
+  (labels ((one-vertex-removed (previous-vertices next-vertices)
+             (cons (append previous-vertices
+                           (cdr next-vertices))
+                   (if (> (length next-vertices) 1) 
+                       (one-vertex-removed (cons (car next-vertices) 
+                                                 previous-vertices) 
+                                           (cdr next-vertices))
+                       nil))))
+    (one-vertex-removed nil vertices)))
+
+(defun polygonalize (vertices) 
+  (labels ((make-path (current-length waypoints remaining-vertices)
+             (list current-length waypoints remaining-vertices))
+           (path-length (path) 
+             (car path))
+           (path-waypoints (path) 
+             (elt path 1))
+           (path-remaining-vertices (path)
+             (elt path 2))
+           (path-vertices-remainingp (path)
+             (> (length (path-remaining-vertices path)) 0))
+           (polygonalize-current-path (current-path)
+             (if (path-vertices-remainingp current-path)
+                 (labels ((make-step (vertex remaining) 
+                            (cons vertex remaining))
+                          (get-vertex (step) 
+                            (car step))
+                          (get-remaining (step) 
+                            (cdr step))
+                          (get-shortest-path (next-step)
+                            (let ((previous-vertex (car (path-waypoints current-path)))) 
+                              (polygonalize-current-path 
+                                (make-path  (+ (path-length current-path) 
+                                               (distance previous-vertex 
+                                                         (get-vertex next-step)))
+                                            (cons (get-vertex next-step) (path-waypoints current-path))
+                                            (get-remaining next-step)))))) 
+                   (let ((potential-steps (mapcar 
+                                            #'make-step
+                                            (path-remaining-vertices current-path) 
+                                            (all-combinations-with-one-vertex-removed 
+                                              (path-remaining-vertices current-path)))))
+                     (reduce (lambda (shortest-path-yet candidate-step)
+                               (let ((potential-next-path (get-shortest-path candidate-step)))
+                                 (if (< (path-length potential-next-path) 
+                                        (path-length shortest-path-yet))
+                                     potential-next-path
+                                     shortest-path-yet)))
+                             (get-shortest-path (car potential-steps))
+                             (cdr potential-steps))))
+                 current-path
+                 )))
+    (let ((vertices-list (convert vertices <list>))) 
+      (convert 
+        (path-waypoints 
+          (polygonalize-current-path 
+            (make-path 0 
+                       (list (car vertices-list)) 
+                       (cdr vertices-list)))) 
+        <general-vector>))))
+
+(defun polygon-normal (polygon)
+  (let ((triangle (subseq polygon 0 3))
+        (reference-point (elt triangle 0)))
+    (matrix::normalize 
+      (matrix::cross (matrix::sub (elt triangle 1) reference-point)
+                     (matrix::sub (elt triangle 2) reference-point)))))
+
+(defun hole-clearance (hole-direction plane-normal radius)
+  (let* ((unit-normal (normalize plane-normal))
+        (unit-direction (normalize hole-direction))
+        (normal-dot-direction (matrix::dot unit-normal unit-direction)))
+    (matrix::mult (abs (* normal-dot-direction 
+                          (- 1 (expt normal-dot-direction -2)) 
+                          radius)) 
+                  unit-direction)))

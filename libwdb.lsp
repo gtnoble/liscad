@@ -12,6 +12,7 @@
 (import "seq")
 (import "macro")
 (import "string")
+(load "geometry.lsp")
 
 ;;; Counter for creating unique C variable names
 (defdynamic *c-sym-count* 0)
@@ -161,7 +162,9 @@
     vertices))
 
 (defun make-arb8 (name quad1 quad2)
-  (let* ((vertices (concatenate '<list> quad1 quad2))
+  (let* ((vertices (concatenate '<list> 
+                                (polygonalize quad1) 
+                                (polygonalize quad2)))
         (flat-vertices (unnest vertices))) 
     (if (= (length vertices) 8) 
       (let-c-double-array "flat_vertices" "fastf_t" flat-vertices 24

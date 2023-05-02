@@ -21,7 +21,6 @@
 (defconstant +hole-to-edge-distance+
              (* +hole-diameter+ 1.5))
 
-(open-wdb-database "riser.g")
 
 (defun make-riser (base-height wedge-angle name)
   (flet ((base-points->top-points (points)
@@ -33,20 +32,18 @@
     (let ((body 
             (let* ((base-width (+ +mounting-hole-spacing-width+ 
                                   (double +hole-to-edge-distance+)))
-                   (base-x (half base-width))
                    (base-length (+ +old-school-hole-spacing-length+ 
                                    (double +hole-to-edge-distance+)))
-                   (base-vertices (vector (vector base-x 0 0)
-                                          (vector base-x base-length 0)
-                                          (vector (- base-x) base-length 0)
-                                          (vector (- base-x) 0 0)))
+                   (base-vertices (matrix::cartesian-product
+                                    (centered-pair base-width)
+                                    (vector 0 base-length)
+                                    #(0)))
                    (top-vertices (base-points->top-points base-vertices)))
               (make-arb8 "body.s" base-vertices top-vertices)))
           (holes
             (let* ((base-hole-centers (translate 
                                         (matrix::cartesian-product  
-                                          (half (vector (- +mounting-hole-spacing-width+) 
-                                                        +mounting-hole-spacing-width+))
+                                          (centered-pair +mounting-hole-spacing-width+)
                                           (vector 0 
                                                   +old-school-hole-spacing-length+ 
                                                   +new-school-hole-spacing-length+)
@@ -63,8 +60,7 @@
                                      (lambda (base-hole-center direction-vector)
                                        (let* ((hole-radius (half +hole-diameter+))
                                               (clearance-vector 
-                                                (matrix::mult (matrix::normalize direction-vector) 
-                                                              hole-radius)))
+                                                (half direction-vector)))
                                          (make-rcc "hole.s"
                                                    (matrix::sub base-hole-center clearance-vector) 
                                                    (matrix::add (double clearance-vector) 
@@ -75,3 +71,8 @@
                                 'union
                                 nil))))
       (make-combination name (list body holes) 'difference nil))))
+
+(open-wdb-database (line-argument 0))
+(make-riser (parse-number (line-argument 1)) 
+            (parse-number (line-argument 2))
+            (line-argument 3))
