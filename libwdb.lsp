@@ -70,6 +70,10 @@
     (setf (dynamic *current-wdb-db*) res)
     res))
 
+(defun close-wdb-database ()
+  (let ((wdb-pointer (current-wdb-pointer)))
+    (c-lang "res = true; db_close(((struct rt_wdb *)Fgetlong(WDB_POINTER))->dbip);")))
+
 ;;; Sets the INDEX element of C-vector with C name VECTOR-C-NAME to value of variable VALUE-VARIABLE
 (defmacro set-c-vector-coordinate (vector-c-name index value-variable)
   (let* ((value-name-string (convert value-variable <string>))

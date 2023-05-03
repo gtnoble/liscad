@@ -83,3 +83,4 @@
 (make-riser (parse-number (line-argument 1)) 
             (parse-number (line-argument 2))
             (line-argument 3))
+(close-wdb-database)
