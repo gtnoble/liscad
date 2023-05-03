@@ -29,47 +29,54 @@
                            wedge-angle 
                            points) 
              (basis-vector 'z base-height)))) 
-    (let ((body 
-            (let* ((base-width (+ +mounting-hole-spacing-width+ 
-                                  (double +hole-to-edge-distance+)))
-                   (base-length (+ +old-school-hole-spacing-length+ 
-                                   (double +hole-to-edge-distance+)))
-                   (base-vertices (matrix::cartesian-product
-                                    (centered-pair base-width)
-                                    (vector 0 base-length)
-                                    #(0)))
-                   (top-vertices (base-points->top-points base-vertices)))
-              (make-arb8 "body.s" base-vertices top-vertices)))
-          (holes
-            (let* ((base-hole-centers (translate 
-                                        (matrix::cartesian-product  
-                                          (centered-pair +mounting-hole-spacing-width+)
-                                          (vector 0 
-                                                  +old-school-hole-spacing-length+ 
-                                                  +new-school-hole-spacing-length+)
-                                          #(0))
-                                        (basis-vector 'y +hole-to-edge-distance+)))
-                   (top-hole-centers (base-points->top-points base-hole-centers))
-                   (hole-directions (map '<general-vector> 
-                                         (lambda (base-center top-center)
-                                           (matrix::sub top-center base-center))
-                                         base-hole-centers
-                                         top-hole-centers)))
-              (make-combination "holes.c"
-                                (map '<general-vector> 
-                                     (lambda (base-hole-center direction-vector)
-                                       (let* ((hole-radius (half +hole-diameter+))
-                                              (clearance-vector 
-                                                (half direction-vector)))
-                                         (make-rcc "hole.s"
-                                                   (matrix::sub base-hole-center clearance-vector) 
-                                                   (matrix::add (double clearance-vector) 
-                                                                direction-vector)
-                                                   hole-radius)))
-                                     base-hole-centers
-                                     hole-directions)
-                                'union
-                                nil))))
+    (let* ((base-width (+ +mounting-hole-spacing-width+ 
+                          (double +hole-to-edge-distance+)))
+           (base-length (+ +old-school-hole-spacing-length+ 
+                           (double +hole-to-edge-distance+)))
+           (base-vertices (matrix::cartesian-product
+                            (centered-pair base-width)
+                            (vector 0 base-length)
+                            #(0)))
+           (top-vertices (base-points->top-points base-vertices))
+           (body (make-arb8 "body.s" base-vertices top-vertices))
+           (holes
+             (let* ((base-hole-centers (translate 
+                                         (matrix::cartesian-product  
+                                           (centered-pair +mounting-hole-spacing-width+)
+                                           (vector 0 
+                                                   +old-school-hole-spacing-length+ 
+                                                   +new-school-hole-spacing-length+)
+                                           #(0))
+                                         (basis-vector 'y +hole-to-edge-distance+)))
+                    (top-hole-centers (base-points->top-points base-hole-centers))
+                    (hole-directions (map '<general-vector> 
+                                          (lambda (base-center top-center)
+                                            (matrix::sub top-center base-center))
+                                          base-hole-centers
+                                          top-hole-centers)))
+               (make-combination "holes.c"
+                                 (map '<general-vector> 
+                                      (lambda (base-hole-center direction-vector)
+                                        (let* ((hole-radius (half +hole-diameter+))
+                                               (base-clearance-vector 
+                                                 (hole-clearance direction-vector 
+                                                                 (polygon-normal base-vertices) 
+                                                                 hole-radius))
+                                               (top-clearance-vector
+                                                 (hole-clearance direction-vector
+                                                                 (polygon-normal top-vertices)
+                                                                 hole-radius)))
+                                          (print (matrix::norm base-clearance-vector))
+                                          (make-rcc "hole.s"
+                                                    (matrix::sub base-hole-center base-clearance-vector) 
+                                                    (matrix::add base-clearance-vector 
+                                                                 top-clearance-vector
+                                                                 direction-vector)
+                                                    hole-radius)))
+                                      base-hole-centers
+                                      hole-directions)
+                                 'union
+                                 nil))))
       (make-combination name (list body holes) 'difference nil))))
 
 (open-wdb-database (line-argument 0))

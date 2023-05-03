@@ -124,17 +124,17 @@
         <general-vector>))))
 
 (defun polygon-normal (polygon)
-  (let ((triangle (subseq polygon 0 3))
+  (let* ((triangle (subseq polygon 0 3))
         (reference-point (elt triangle 0)))
     (matrix::normalize 
       (matrix::cross (matrix::sub (elt triangle 1) reference-point)
                      (matrix::sub (elt triangle 2) reference-point)))))
 
 (defun hole-clearance (hole-direction plane-normal radius)
-  (let* ((unit-normal (normalize plane-normal))
-        (unit-direction (normalize hole-direction))
+  (let* ((unit-normal (matrix::normalize plane-normal))
+        (unit-direction (matrix::normalize hole-direction))
         (normal-dot-direction (matrix::dot unit-normal unit-direction)))
-    (matrix::mult (abs (* normal-dot-direction 
-                          (- 1 (expt normal-dot-direction -2)) 
-                          radius)) 
+    (matrix::mult (abs (quotient (sqrt (- 1 (expt normal-dot-direction 2)))
+                                 normal-dot-direction)) 
+                  radius
                   unit-direction)))
