@@ -66,7 +66,6 @@
                                                  (hole-clearance direction-vector
                                                                  (polygon-normal top-vertices)
                                                                  hole-radius)))
-                                          (print (matrix::norm base-clearance-vector))
                                           (make-rcc "hole.s"
                                                     (matrix::sub base-hole-center base-clearance-vector) 
                                                     (matrix::add base-clearance-vector 

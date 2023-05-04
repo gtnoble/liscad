@@ -50,6 +50,9 @@
 (defun current-wdb-pointer ()
   (pointer (dynamic *current-wdb-db*)))
 
+(defun wdb-database-openp ()
+  (/= (current-wdb-pointer) 0))
+
 ;;; List of names of all objects in the open database
 (defun current-wdb-names ()
   (wdb-object-names (dynamic *current-wdb-db*)))
@@ -62,17 +65,18 @@
 ;;; Open wdb database with filename FILENAME
 (defun open-wdb-database (filename) 
   (c-lang "struct rt_wdb *db_fp;")
-  (let ((res (create (class <wdb-database>))))
+  (let ((new-database (create (class <wdb-database>))))
     (c-lang "db_fp = wdb_fopen(Fgetname(FILENAME));")
     (c-lang "char *fp_str;")
     (c-lang "fp_str = fast_sprint_hex_long(db_fp);")
-    (setf (pointer res) (c-lang "Fmakefaststrlong(fp_str);"))
-    (setf (dynamic *current-wdb-db*) res)
-    res))
+    (setf (pointer new-database) (c-lang "Fmakefaststrlong(fp_str);"))
+    (setf (dynamic *current-wdb-db*) new-database)
+    new-database))
 
 (defun close-wdb-database ()
   (let ((wdb-pointer (current-wdb-pointer)))
-    (c-lang "res = true; db_close(((struct rt_wdb *)Fgetlong(WDB_POINTER))->dbip);")))
+    (c-lang "res = true; db_close(((struct rt_wdb *)Fgetlong(WDB_POINTER))->dbip);")
+    (setf wdb-pointer 0)))
 
 ;;; Sets the INDEX element of C-vector with C name VECTOR-C-NAME to value of variable VALUE-VARIABLE
 (defmacro set-c-vector-coordinate (vector-c-name index value-variable)
@@ -155,6 +159,8 @@
                                      ");")))
     `(let ((,generated-name (available-object-name ,prefix))
            (,generated-dbptr-name (current-wdb-pointer)))
+       (if (not (wdb-database-openp)) 
+           (error "No open wdb database"))
        (c-lang ,c-expression)
        (add-object-name ,generated-name)
        ,generated-name)))
