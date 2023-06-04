@@ -3,7 +3,8 @@
 (load "geometry.lsp")
 
 (defun threading-tool (name vertex major-radius direction pitch step-length tool-type)
-  (let* ((unit-direction (matrix::normalize direction))
+  (with-handle-underflow
+    (let* ((unit-direction (matrix::normalize direction))
          (directional-pitch (matrix::mult unit-direction pitch))
          (perpendicular-radius (matrix::sub major-radius 
                                             (matrix::mult (matrix::dot unit-direction major-radius) 
@@ -53,7 +54,9 @@
         (flet ((make-threads (thread-profile)
                  (let ((thread-faces (map '<list>
                                           ;;TODO replace with linspace
-                                          (lambda (x) (funcall thread-profile (matrix::norm x)))
+                                          (lambda (x) 
+                                            (let ((profile (funcall thread-profile (matrix::norm x))))
+                                              profile))
                                           (point-interval +origin+ step-length direction)))) 
                    (make-combination 
                      "threads.c" 
@@ -89,4 +92,4 @@
                         trim-peaks)
                       'intersection
                       nil)))
-                (t (error "tool type must be either 'tap or 'die")))))))
+                (t (error "tool type must be either 'tap or 'die"))))))))

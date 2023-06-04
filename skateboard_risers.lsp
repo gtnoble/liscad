@@ -78,8 +78,15 @@
                                  nil))))
       (make-combination name (list body holes) 'difference nil))))
 
-(open-wdb-database (line-argument 0))
-(make-riser (parse-number (line-argument 1)) 
-            (parse-number (line-argument 2))
-            (line-argument 3))
-(close-wdb-database)
+(defun test-regular ()
+  (open-wdb-database "test-riser.g")
+  (make-riser 5
+              15
+              "riser.c")
+  (close-wdb-database))
+
+(defun test-unwind () 
+  (with-wdb-database "test-riser-unwind.g"
+                     (make-riser 5
+                                 15
+                                 "riser.c")))

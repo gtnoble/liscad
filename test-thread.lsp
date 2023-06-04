@@ -1,4 +1,13 @@
+(load "libwdb.o")
 (load "collections.lsp")
 
-(open-wdb-database "thread-test.g")
+(with-wdb-database "thread-test.g"
+                   (threading-tool "tap.c" 
+                                   #(0 0 0) 
+                                   #(0 1 0)
+                                   #(0 0 3)
+                                   0.3
+                                   0.01
+                                   'tap))                   
+
 

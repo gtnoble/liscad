@@ -3,6 +3,17 @@
 
 (defconstant +origin+ #(0 0 0))
 
+(defun handle-underflow (condition)
+  (if (instancep condition (class <floating-point-underflow>))
+      (progn
+        (continue-condition condition))
+      (signal-condition condition (condition-continuable condition))))
+
+
+(defmacro with-handle-underflow (body)
+  `(with-handler #'handle-underflow ,body)
+  )
+
 ;;; TRANSLATE translates vertices in the direction of DISPLACEMENT
 (defun translate (vertices displacement)
   (map '<general-vector> 
@@ -161,7 +172,7 @@
                                             (matrix::mult (matrix::dot unit-direction radius) 
                                                           unit-direction)))
          (angle (quotient distance 
-                   (quotient pitch  (* 2 *pi*))))
+                          (quotient pitch  (* 2 *pi*))))
          (rotated-radius (rotate-vector unit-direction angle perpendicular-radius)))
     (matrix::add vertex displacement rotated-radius)))
 
