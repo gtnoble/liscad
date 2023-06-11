@@ -23,5 +23,5 @@
                (top-triangle (translate bottom-triangle 
                                         #(0 0 1))))
           (make-arb6 "arb6.s" bottom-triangle top-triangle))) 
-  'union 
-  nil)
+  'union
+  (create (class <material>) 'color #(0 128 128)))

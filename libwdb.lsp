@@ -1,4 +1,4 @@
-(c-option "-L/home/gtnoble/Software/BRL-CAD/brlcad/build/lib -I/home/gtnoble/Software/BRL-CAD/brlcad/include -lwdb -lbu -lbn -lrt")
+(c-option "-lwdb -lbu -lbn -lrt")
 (c-include "<stdlib.h>")
 (c-include "<stdio.h>")
 (c-include "<math.h>")
@@ -221,6 +221,16 @@
   (let-c-vectors (("base" "point_t" base-vertex) ("height" "vect_t" height-vector))
                  (make-wdb-object "mk_rcc" name "base" "height" "Fgetflt(RADIUS)")))
 
+;;; Makes a truncated right cone in the current database
+(defun make-trc (name base-vertex height-vector base-radius top-radius)
+  (let-c-vectors (("base" "point_t" base-vertex) ("height" "vect_t" height-vector))
+                 (make-wdb-object "mk_trc_h" name "base" "height" "Fgetflt(BASE_RADIUS)" "Fgetflt(TOP_RADIUS)")))
+
+;;; Makes a torus in the current database
+(defun make-tor (name center-vertex normal-vector major-radius minor-radius)
+  (let-c-vectors (("center" "point_t" center-vertex) ("normal" "vect_t" normal-vector))
+                 (make-wdb-object "mk_tor" name "center" "normal" "Fgetflt(MAJOR_RADIUS)" "Fgetflt(MINOR_RADIUS)")))
+
 (defun union-operation ()
   (c-lang "res = WMOP_UNION | INT_FLAG;"))
 
@@ -238,16 +248,59 @@
                               (t (error "invalid operation selected")))))
     (c-lang "mk_addmember(Fgetname(ELEMENT_NAME), Fgetlong(LIST_HEAD), NULL, OPERATION_CODE & INT_MASK);")))
 
+(defun check-valid-color (color)
+  (if color
+      (let ((max-color-value (c-lang "res = UCHAR_MAX | INT_FLAG;")))
+        (if (> (length color) 3)
+            (error "Colors can only have 3 components"))
+        (dolist (component (convert color <list>))
+          (if (not (integerp component))
+              (error "All color components must be integers!"))
+          (if (> component max-color-value)
+              (error (string-append "Color components can not have a value greater than " 
+                                    (to-string max-color-value))))))))
+
+(defclass <material> ()
+  ((shader-name :accessor shader-name :initarg shader-name :initform nil) 
+   (shader-args :accessor shader-arguments :initarg shader-args :initform nil) 
+   (color :accessor color :initarg color :initform nil) 
+   (inherit-shader :accessor inherit-shader :initarg inherit-shader :initform nil)))
+
 ;;; Makes a combination
-(defun make-combination (combination-name element-names operation is_region &rest region-parameters)
-  (c-lang "struct wmember wm_hd;")
+(defun make-combination (combination-name element-names operation &rest region) (c-lang "struct wmember wm_hd;")
   (c-lang "BU_LIST_INIT(&wm_hd.l);")
   (c-lang "char *list_head_str;")
   (c-lang "list_head_str = fast_sprint_hex_long(&wm_hd.l);")
-  (c-lang "unsigned char rgb[3] = {0, 0, 0};")
   (let ((list-head (c-lang "res = Fmakefaststrlong(list_head_str);"))
         (wdbptr (current-wdb-pointer)))
     (dolist (element-name (convert element-names <list>))
       (append-combination-list element-name list-head operation))
-    (make-wdb-object "mk_lcomb" combination-name "&wm_hd" "0" "NULL" "NULL" "NULL" "0")
-    ))
+    (if region
+        (let* ((material (car region)) 
+               (shader-name (shader-name material))
+               (shader-args (shader-arguments material))
+               (color (if (color material) 
+                          (convert (color material) <list>)
+                          nil))
+               (inherit (if (inherit-shader material) 1 0)))
+
+          (check-valid-color color)
+          (c-lang "unsigned char rgb[3];
+                   unsigned char *color;
+                   if (COLOR == NULL) {
+                     color = NULL;
+                   }
+                   else {
+                     for (int remaining = COLOR, i = 0; remaining != NULL && i < 3; remaining = Fcdr(remaining), i++)
+                       rgb[i] = (unsigned char)(Fcar(remaining) & INT_MASK);
+                     color = rgb;
+                   }")
+          (make-wdb-object "mk_lcomb" 
+                           combination-name 
+                           "&wm_hd" 
+                           "1" 
+                           "Fgetname(SHADER_NAME)" 
+                           "Fgetname(SHADER_ARGS)" 
+                           "color" 
+                           "INHERIT & INT_MASK"))
+        (make-wdb-object "mk_lcomb" combination-name "&wm_hd" "0" "NULL" "NULL" "NULL" "0"))))
