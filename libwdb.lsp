@@ -72,11 +72,13 @@
     (setf (dynamic *current-wdb-db*) new-database)
     new-database))
 
+;;; Close open database
 (defun close-wdb-database ()
   (let ((wdb-pointer (current-wdb-pointer)))
     (c-lang "res = true; db_close(((struct rt_wdb *)Fgetlong(WDB_POINTER))->dbip);")
     (setf wdb-pointer 0)))
 
+;;; Execute BODY with the database loaded from FILENAME. The database is automatically closed when execution leaves the form.
 (defmacro with-wdb-database (filename &rest body)
   `(progn 
      (open-wdb-database ,filename)
@@ -231,20 +233,11 @@
   (let-c-vectors (("center" "point_t" center-vertex) ("normal" "vect_t" normal-vector))
                  (make-wdb-object "mk_tor" name "center" "normal" "Fgetflt(MAJOR_RADIUS)" "Fgetflt(MINOR_RADIUS)")))
 
-(defun union-operation ()
-  (c-lang "res = WMOP_UNION | INT_FLAG;"))
-
-(defun subtract-operation ()
-  (c-lang "res = WMOP_SUBTRACT | INT_FLAG;"))
-
-(defun intersect-operation ()
-  (c-lang "res = WMOP_INTERSECT | INT_FLAG;"))
-
 ;;; Appends an object to a combination list
 (defun append-combination-list (element-name list-head operation)
-  (let ((operation-code (cond ((eq operation 'union) (union-operation))
-                              ((eq operation 'difference) (subtract-operation))
-                              ((eq operation 'intersection) (intersect-operation))
+  (let ((operation-code (cond ((eq operation 'union) (c-lang "res = WMOP_UNION | INT_FLAG;"))
+                              ((eq operation 'difference) (c-lang "res = WMOP_SUBTRACT | INT_FLAG;"))
+                              ((eq operation 'intersection) (c-lang "res = WMOP_INTERSECT | INT_FLAG;"))
                               (t (error "invalid operation selected")))))
     (c-lang "mk_addmember(Fgetname(ELEMENT_NAME), Fgetlong(LIST_HEAD), NULL, OPERATION_CODE & INT_MASK);")))
 
